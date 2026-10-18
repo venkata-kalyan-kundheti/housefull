@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DataBadges } from "@/components/DataBadges";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,9 +32,7 @@ export default function RootLayout({
               </nav>
             </div>
             <div id="data-badges-container" className="flex items-center gap-2">
-              <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">
-                SIMULATED SHOWTIMES
-              </span>
+              <DataBadges />
             </div>
           </div>
         </header>
