@@ -1,0 +1,38 @@
+{
+  "_stub": true,
+  "success": true,
+  "results": {
+    "entities": [
+      {
+        "entity_id": "STUB-ARTIST-0001",
+        "name": "Stub Artist A",
+        "type": "urn:entity:artist",
+        "popularity": 0.82,
+        "tags": [
+          { "id": "urn:tag:stub:ambient", "name": "Ambient" },
+          { "id": "urn:tag:stub:electronic", "name": "Electronic" }
+        ],
+        "properties": {
+          "short_descriptions": [
+            { "value": "A fake ambient musician for testing purposes." }
+          ],
+          "adjectives_for_fans": ["dreamy", "analytical", "introspective"]
+        },
+        "query": { "affinity": 0.88 }
+      },
+      {
+        "entity_id": "STUB-ARTIST-0002",
+        "name": "Stub Artist B",
+        "type": "urn:entity:artist",
+        "popularity": 0.65,
+        "tags": [
+          { "id": "urn:tag:stub:soundtrack", "name": "Soundtrack" }
+        ],
+        "properties": {
+          "description": "Composes cinematic synth scores."
+        },
+        "query": { "affinity": 0.74 }
+      }
+    ]
+  }
+}

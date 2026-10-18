@@ -1,0 +1,26 @@
+{
+  "_stub": true,
+  "success": true,
+  "results": {
+    "entities": [
+      {
+        "entity_id": "STUB-PLACE-0001",
+        "name": "Dreamers Espresso Bar",
+        "type": "urn:entity:place",
+        "popularity": 0.71,
+        "tags": [
+          { "id": "urn:tag:category:place:cafe", "name": "Cafe" }
+        ],
+        "properties": {
+          "latitude": 40.7585,
+          "longitude": -73.9850,
+          "address": "123 Broadway, New York, NY",
+          "short_descriptions": [
+            { "value": "Specialty espresso coffee shop near cinema." }
+          ]
+        },
+        "query": { "affinity": 0.81 }
+      }
+    ]
+  }
+}

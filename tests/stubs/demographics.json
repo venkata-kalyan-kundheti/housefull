@@ -1,0 +1,25 @@
+{
+  "_stub": true,
+  "success": true,
+  "results": {
+    "demographics": [
+      {
+        "entity_id": "STUB-FILM-INCEPTION",
+        "query": {
+          "age": {
+            "24_and_younger": 0.05,
+            "25_to_29": 0.12,
+            "30_to_34": -0.04,
+            "35_to_44": -0.15,
+            "45_to_54": 0.01,
+            "55_and_older": -0.18
+          },
+          "gender": {
+            "male": 0.08,
+            "female": -0.08
+          }
+        }
+      }
+    ]
+  }
+}

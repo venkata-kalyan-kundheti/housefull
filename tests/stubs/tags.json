@@ -1,0 +1,16 @@
+{
+  "_stub": true,
+  "success": true,
+  "results": {
+    "tags": [
+      {
+        "id": "urn:tag:category:place:cafe",
+        "name": "Cafe"
+      },
+      {
+        "id": "urn:tag:category:place:book_store",
+        "name": "Book Store"
+      }
+    ]
+  }
+}

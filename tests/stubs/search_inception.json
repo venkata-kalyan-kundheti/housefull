@@ -1,0 +1,20 @@
+{
+  "_stub": true,
+  "success": true,
+  "results": [
+    {
+      "entity_id": "STUB-FILM-INCEPTION",
+      "name": "Inception",
+      "types": ["urn:entity:movie"],
+      "popularity": 0.95,
+      "disambiguation": "2010 film directed by Christopher Nolan"
+    },
+    {
+      "entity_id": "STUB-FILM-INCEPTION-ALT",
+      "name": "Inception: The Shooting Script",
+      "types": ["urn:entity:book"],
+      "popularity": 0.35,
+      "disambiguation": "Book"
+    }
+  ]
+}

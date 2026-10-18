@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Next.js build output
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Raw Qloo data and private caches (must never be committed)
+.private/
+
+# Reports
+qloo-*-report.txt
+*.report.txt
+
+# Deployment
+.vercel/
+
+# Coverage
+coverage/
