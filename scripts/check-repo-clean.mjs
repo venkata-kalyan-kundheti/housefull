@@ -72,7 +72,6 @@ function checkRules() {
     const isAllowedForEntityId =
       normalized.startsWith('lib/qloo/') ||
       normalized === 'README.md' ||
-      normalized === 'qloo-README.md' ||
       normalized.startsWith('docs/');
 
     if (!isAllowedForEntityId) {

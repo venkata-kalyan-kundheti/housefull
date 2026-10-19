@@ -9,6 +9,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { TraceEvent } from "@/lib/agent/trace";
+import { createSseParser } from "./sse";
 
 export type StreamStatus = "idle" | "connecting" | "running" | "ready" | "failed";
 
@@ -118,53 +119,51 @@ export function useBriefStream(
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = "";
+        const parser = createSseParser();
+        let finished = false;
+
+        const handlePayload = (dataStr: string) => {
+          try {
+            const event = JSON.parse(dataStr) as TraceEvent;
+            setEvents((prev) => [...prev, event]);
+
+            if (event.type === "brief.ready") {
+              finished = true;
+              setBriefId(event.briefId);
+              setStatus("ready");
+            } else if (event.type === "run.failed") {
+              finished = true;
+              setStatus("failed");
+              setError({ code: event.code, message: event.message });
+              if (event.alternates) {
+                setAlternates(event.alternates);
+              }
+            }
+          } catch {
+            // Ignore malformed data lines
+          }
+        };
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // Events in SSE are separated by double newline
-          const parts = buffer.split("\n\n");
-          // Keep the last partial event in the buffer
-          buffer = parts.pop() ?? "";
-
-          for (const rawPart of parts) {
-            const block = rawPart.trim();
-            if (!block) continue;
-
-            const lines = block.split("\n");
-            let dataStr = "";
-
-            for (const line of lines) {
-              if (line.startsWith(":")) continue; // Comment / heartbeat line
-              if (line.startsWith("data:")) {
-                dataStr = line.slice(5).trim();
-              }
-            }
-
-            if (dataStr) {
-              try {
-                const event = JSON.parse(dataStr) as TraceEvent;
-                setEvents((prev) => [...prev, event]);
-
-                if (event.type === "brief.ready") {
-                  setBriefId(event.briefId);
-                  setStatus("ready");
-                } else if (event.type === "run.failed") {
-                  setStatus("failed");
-                  setError({ code: event.code, message: event.message });
-                  if (event.alternates) {
-                    setAlternates(event.alternates);
-                  }
-                }
-              } catch {
-                // Ignore malformed data lines
-              }
-            }
+          for (const payload of parser.push(decoder.decode(value, { stream: true }))) {
+            handlePayload(payload);
           }
+        }
+
+        for (const payload of parser.flush()) {
+          handlePayload(payload);
+        }
+
+        // The server closed the stream without a final event (for example the
+        // hosting platform stopped the request). Do not leave the UI spinning.
+        if (!finished) {
+          setStatus("failed");
+          setError({
+            code: "STREAM_ENDED",
+            message: "The connection closed before the brief was finished. Please try again.",
+          });
         }
       } catch (err: unknown) {
         if ((err as Error)?.name === "AbortError") {

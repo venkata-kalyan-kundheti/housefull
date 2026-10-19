@@ -169,5 +169,27 @@ describe("GeminiLlmClient (Section 11.2)", () => {
     }
     expect(caller).toHaveBeenCalledTimes(2);
   });
+
+  it("clears its timeout timer after a successful call (no leaked timers)", async () => {
+    vi.useFakeTimers();
+    try {
+      const caller = vi.fn().mockResolvedValue({
+        text: JSON.stringify({ actions: ["ok"] }),
+      });
+      const client = new GeminiLlmClient({ caller, retryDelayMs: 0 });
+      const res = await client.generateJson({
+        purpose: "planner",
+        system: "Sys",
+        user: "User prompt",
+        schema: testSchema,
+        maxOutputTokens: 300,
+        timeoutMs: 20_000,
+      });
+      expect(res.ok).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 

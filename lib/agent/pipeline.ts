@@ -47,6 +47,7 @@ import {
 } from "@/lib/domain/channels";
 import { generateSegments, type Segment } from "@/lib/domain/segments";
 import { computeConfidence } from "@/lib/domain/confidence";
+import { shouldReportMissingDomain } from "@/lib/domain/limitations";
 import { GeminiLlmClient } from "@/lib/llm/gemini";
 import type { LlmClient } from "@/lib/llm/types";
 import {
@@ -485,13 +486,14 @@ export async function runPipeline(
 
   for (const { domain, res } of domainCallResults) {
     if (res.call) qlooCallsMap.set(res.call.id, res.call);
-    if (!res.ok || res.data.length === 0) {
+    if (shouldReportMissingDomain(domain, res.ok, res.ok ? res.data.length : 0)) {
       addLimitation(`L_DOMAIN_MISSING:${domain}`);
-      if (!res.ok) {
-        if (res.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
-        if (res.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
-      }
-    } else {
+    }
+    if (!res.ok) {
+      if (res.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
+      if (res.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
+    }
+    if (res.ok && res.data.length > 0) {
       successfulFanoutCount++;
     }
   }

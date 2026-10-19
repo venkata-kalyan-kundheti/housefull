@@ -262,6 +262,8 @@ export class GeminiLlmClient implements LlmClient {
             });
             continue;
           }
+        } finally {
+          if (timer) clearTimeout(timer);
         }
       }
 
