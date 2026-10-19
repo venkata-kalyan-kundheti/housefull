@@ -104,17 +104,25 @@ export class GeminiLlmClient implements LlmClient {
         temperature,
         maxOutputTokens,
         timeoutMs,
+        signal,
       }) => {
         const config = getConfig();
         const ai = new GoogleGenAI({ apiKey: config.LLM_API_KEY });
 
         const abortController = new AbortController();
-        const timer = setTimeout(() => {
-          abortController.abort(new Error("LLM request timed out"));
-        }, timeoutMs);
+        const effectiveSignal = signal ?? abortController.signal;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            const err = new Error("LLM request timed out");
+            err.name = "AbortError";
+            abortController.abort(err);
+            reject(err);
+          }, timeoutMs);
+        });
 
         try {
-          const response = await ai.models.generateContent({
+          const sdkPromise = ai.models.generateContent({
             model,
             contents: user,
             config: {
@@ -122,8 +130,11 @@ export class GeminiLlmClient implements LlmClient {
               temperature,
               maxOutputTokens,
               responseMimeType: "application/json",
+              abortSignal: effectiveSignal,
             },
           });
+
+          const response = await Promise.race([sdkPromise, timeoutPromise]);
 
           return {
             text: response.text ?? "",
@@ -131,7 +142,7 @@ export class GeminiLlmClient implements LlmClient {
             outputTokens: response.usageMetadata?.candidatesTokenCount,
           };
         } finally {
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
         }
       };
     }
@@ -151,15 +162,30 @@ export class GeminiLlmClient implements LlmClient {
       let lastError: LlmError | null = null;
 
       for (let attempt = 1; attempt <= 2; attempt++) {
+        const abortController = new AbortController();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            const err = new Error("LLM request timed out");
+            err.name = "AbortError";
+            abortController.abort(err);
+            reject(err);
+          }, timeoutMs);
+        });
+
         try {
-          const raw = await this.caller({
-            model,
-            system: args.system,
-            user: currentUserPrompt,
-            temperature: LLM_TEMPERATURE,
-            maxOutputTokens,
-            timeoutMs,
-          });
+          const raw = await Promise.race([
+            this.caller({
+              model,
+              system: args.system,
+              user: currentUserPrompt,
+              temperature: LLM_TEMPERATURE,
+              maxOutputTokens,
+              timeoutMs,
+              signal: abortController.signal,
+            }),
+            timeoutPromise,
+          ]);
 
           const stripped = stripCodeFence(raw.text);
 

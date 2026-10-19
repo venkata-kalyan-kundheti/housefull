@@ -48,8 +48,10 @@ async function executeQlooCall<T>(args: {
   compactFn: (data: unknown) => T;
   countFn: (compacted: T) => number;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
 }): Promise<QlooResult<T>> {
   const { ctx, endpoint, rawParams, compactFn, countFn, fetchImpl } = args;
+  const timeoutMs = args.timeoutMs ?? ctx.timeoutMs ?? 20000;
 
   // 1. Guard parameters (throws ParamGuardError on programmer error)
   const params = guardParams(endpoint, rawParams);
@@ -127,7 +129,7 @@ async function executeQlooCall<T>(args: {
 
   // 7. Initial fetch attempt
   let attempts = 1;
-  let fetchRes = await executeFetch(endpoint, params, fetchImpl);
+  let fetchRes = await executeFetch(endpoint, params, fetchImpl, timeoutMs);
 
   // 8. Retry evaluation (max 2 attempts)
   if (!fetchRes.ok) {
@@ -143,7 +145,7 @@ async function executeQlooCall<T>(args: {
       }
       await limiter.acquire();
       attempts = 2;
-      fetchRes = await executeFetch(endpoint, params, fetchImpl);
+      fetchRes = await executeFetch(endpoint, params, fetchImpl, timeoutMs);
     }
   }
 
@@ -205,7 +207,7 @@ async function executeQlooCall<T>(args: {
 export async function searchEntities(
   ctx: QlooContext,
   query: string,
-  opts?: { take?: number; fetchImpl?: typeof fetch }
+  opts?: { take?: number; fetchImpl?: typeof fetch; timeoutMs?: number }
 ): Promise<QlooResult<CompactSearchResult[]>> {
   const take = opts?.take ?? 10;
   return executeQlooCall<CompactSearchResult[]>({
@@ -215,6 +217,7 @@ export async function searchEntities(
     compactFn: (data) => compactSearch(data).slice(0, take),
     countFn: (res) => res.length,
     fetchImpl: opts?.fetchImpl,
+    timeoutMs: opts?.timeoutMs,
   });
 }
 
@@ -222,7 +225,7 @@ export async function getDomainInsights(
   ctx: QlooContext,
   domain: Domain,
   filmEntityId: string,
-  opts?: { take?: number; fetchImpl?: typeof fetch }
+  opts?: { take?: number; fetchImpl?: typeof fetch; timeoutMs?: number }
 ): Promise<QlooResult<CompactEntity[]>> {
   const take = opts?.take ?? 10;
   return executeQlooCall<CompactEntity[]>({
@@ -236,6 +239,7 @@ export async function getDomainInsights(
     compactFn: (data) => compactEntities(data, take),
     countFn: (res) => res.length,
     fetchImpl: opts?.fetchImpl,
+    timeoutMs: opts?.timeoutMs,
   });
 }
 
@@ -247,6 +251,7 @@ export async function getPlaces(
     filmEntityId: string;
     take?: number;
     fetchImpl?: typeof fetch;
+    timeoutMs?: number;
   }
 ): Promise<QlooResult<CompactPlace[]>> {
   const take = args.take ?? 8;
@@ -263,6 +268,7 @@ export async function getPlaces(
     compactFn: (data) => compactPlaces(data, take),
     countFn: (res) => res.length,
     fetchImpl: args.fetchImpl,
+    timeoutMs: args.timeoutMs,
   });
 }
 
@@ -272,6 +278,7 @@ export async function getHeatmap(
     filmEntityId: string;
     city: string;
     fetchImpl?: typeof fetch;
+    timeoutMs?: number;
   }
 ): Promise<QlooResult<HeatCell[]>> {
   return executeQlooCall<HeatCell[]>({
@@ -285,6 +292,7 @@ export async function getHeatmap(
     compactFn: (data) => compactHeatmap(data),
     countFn: (res) => res.length,
     fetchImpl: args.fetchImpl,
+    timeoutMs: args.timeoutMs,
   });
 }
 
@@ -294,6 +302,7 @@ export async function getDemographics(
     filmEntityId: string;
     city: string;
     fetchImpl?: typeof fetch;
+    timeoutMs?: number;
   }
 ): Promise<QlooResult<DemographicsSkew | null>> {
   return executeQlooCall<DemographicsSkew | null>({
@@ -307,13 +316,14 @@ export async function getDemographics(
     compactFn: (data) => compactDemographics(data),
     countFn: (res) => (res ? 1 : 0),
     fetchImpl: args.fetchImpl,
+    timeoutMs: args.timeoutMs,
   });
 }
 
 export async function searchTags(
   ctx: QlooContext,
   keyword: string,
-  opts?: { take?: number; fetchImpl?: typeof fetch }
+  opts?: { take?: number; fetchImpl?: typeof fetch; timeoutMs?: number }
 ): Promise<QlooResult<CompactTag[]>> {
   const take = opts?.take ?? 10;
   return executeQlooCall<CompactTag[]>({
@@ -326,5 +336,6 @@ export async function searchTags(
     compactFn: (data) => compactTags(data, take),
     countFn: (res) => res.length,
     fetchImpl: opts?.fetchImpl,
+    timeoutMs: opts?.timeoutMs,
   });
 }

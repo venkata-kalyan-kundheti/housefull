@@ -69,13 +69,14 @@ function parseHeaderNum(headers: Headers, name: string): number | null {
 export async function executeFetch(
   endpoint: string,
   params: Record<string, string>,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs: number = 20000
 ): Promise<RawFetchResponse> {
   const config = getConfig();
   const url = buildSortedUrl(endpoint, params);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs); // configurable timeout
   const startedAt = Date.now();
 
   try {
@@ -161,11 +162,12 @@ export async function executeFetch(
       };
     }
 
-    if (res.status === 400) {
+    // Map any other 4xx (400, 404, 422, etc.) to QlooBadRequestError
+    if (res.status >= 400 && res.status < 500) {
       const msg = extractErrorMessage(body);
       return {
         ok: false,
-        status: 400,
+        status: res.status,
         data: body,
         rateLimits,
         latencyMs,

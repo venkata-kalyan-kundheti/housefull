@@ -42,9 +42,9 @@ export class RateLimiter {
 
   private refill(): void {
     const current = this.nowFn();
-    const elapsedSec = (current - this.last) / 1000;
+    const elapsedSec = Math.max(0, (current - this.last) / 1000);
     this.last = current;
-    this.tokens = Math.min(this.capacity, this.tokens + elapsedSec * this.ratePerSec);
+    this.tokens = Math.max(0, Math.min(this.capacity, this.tokens + elapsedSec * this.ratePerSec));
   }
 
   private async drain(): Promise<void> {
@@ -82,4 +82,8 @@ export function getRateLimiter(): RateLimiter {
     sharedLimiter = new RateLimiter(rps);
   }
   return sharedLimiter;
+}
+
+export function resetLimiterForTest(): void {
+  sharedLimiter = null;
 }

@@ -152,11 +152,17 @@ export function findUnknownNames(
     };
 
     for (const rawWord of candidateTokens) {
+      // Check if word has clause-separating punctuation at the end
+      const endsWithClausePunctuation = /[,;:—–]$/.test(rawWord);
       // Strip surrounding punctuation
       const cleanWord = rawWord.replace(/^[^A-Za-z'’-]+|[^A-Za-z'’-]+$/g, "");
 
       if (cleanWord.length >= 2 && WORD_RUN_REGEX.test(cleanWord)) {
         currentRun.push(cleanWord);
+        if (endsWithClausePunctuation) {
+          evaluateRun(currentRun);
+          currentRun = [];
+        }
       } else {
         if (currentRun.length > 0) {
           evaluateRun(currentRun);

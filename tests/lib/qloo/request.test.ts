@@ -94,4 +94,34 @@ describe("lib/qloo/request.ts (Section 8.3)", () => {
     expect(res.error?.code).toBe("QLOO_BAD_REQUEST");
     expect(res.error?.message).toContain("Invalid filter passed");
   });
+
+  it("returns QlooBadRequestError on 404", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ errors: [{ message: "Entity not found" }] }),
+        { status: 404 }
+      )
+    );
+
+    const res = await executeFetch("/v2/insights", {}, fakeFetch);
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(404);
+    expect(res.error?.code).toBe("QLOO_BAD_REQUEST");
+    expect(res.error?.message).toContain("Entity not found");
+  });
+
+  it("returns QlooBadRequestError on 422", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ errors: [{ message: "Unprocessable entity" }] }),
+        { status: 422 }
+      )
+    );
+
+    const res = await executeFetch("/v2/insights", {}, fakeFetch);
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(422);
+    expect(res.error?.code).toBe("QLOO_BAD_REQUEST");
+    expect(res.error?.message).toContain("Unprocessable entity");
+  });
 });

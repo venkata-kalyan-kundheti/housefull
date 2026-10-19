@@ -149,4 +149,25 @@ describe("GeminiLlmClient (Section 11.2)", () => {
     }
     expect(caller).toHaveBeenCalledTimes(2);
   });
+
+  it("fails soft with LLM_TIMEOUT when the caller hangs", async () => {
+    const caller = vi.fn().mockImplementation(() => new Promise(() => {}));
+
+    const client = new GeminiLlmClient({ caller, retryDelayMs: 0 });
+    const res = await client.generateJson({
+      purpose: "planner",
+      system: "Sys",
+      user: "User prompt",
+      schema: testSchema,
+      maxOutputTokens: 300,
+      timeoutMs: 50,
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("LLM_TIMEOUT");
+    }
+    expect(caller).toHaveBeenCalledTimes(2);
+  });
 });
+

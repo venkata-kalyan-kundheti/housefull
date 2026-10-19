@@ -205,6 +205,11 @@ export async function runPipeline(
   const runId = randomUUID();
   const signal = options?.signal;
 
+  const remainingTimeMs = (): number => Math.max(0, RUN_TIMEOUT_MS - (Date.now() - startTime));
+  const qlooDeadline = (): number => Math.max(1, Math.min(20_000, remainingTimeMs()));
+  const llmDeadline = (normal: number = LLM_TIMEOUT_MS): number =>
+    Math.max(1, Math.min(normal, remainingTimeMs()));
+
   const checkTimeoutOrAbort = (): boolean => {
     if (signal?.aborted) return true;
     return Date.now() - startTime >= RUN_TIMEOUT_MS;
@@ -355,6 +360,7 @@ export async function runPipeline(
     const searchRes = await searchEntities(qlooCtx, show.filmTitle, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     });
     if (searchRes.call) qlooCallsMap.set(searchRes.call.id, searchRes.call);
 
@@ -416,40 +422,49 @@ export async function runPipeline(
     getDomainInsights(qlooCtx, "artist", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "brand", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "movie", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "tv_show", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "destination", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "book", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDomainInsights(qlooCtx, "podcast", filmChosenEntityId, {
       take: 10,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getHeatmap(qlooCtx, {
       filmEntityId: filmChosenEntityId,
       city: show.city,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
     getDemographics(qlooCtx, {
       filmEntityId: filmChosenEntityId,
       city: show.city,
       fetchImpl: options?.fetchImpl,
+      timeoutMs: qlooDeadline(),
     }),
   ]);
 
@@ -472,17 +487,29 @@ export async function runPipeline(
     if (res.call) qlooCallsMap.set(res.call.id, res.call);
     if (!res.ok || res.data.length === 0) {
       addLimitation(`L_DOMAIN_MISSING:${domain}`);
+      if (!res.ok) {
+        if (res.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
+        if (res.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
+      }
     } else {
       successfulFanoutCount++;
     }
   }
 
   if (heatmapRes.call) qlooCallsMap.set(heatmapRes.call.id, heatmapRes.call);
+  if (!heatmapRes.ok) {
+    if (heatmapRes.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
+    if (heatmapRes.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
+  }
   if (heatmapRes.ok && heatmapRes.data.length > 0) {
     successfulFanoutCount++;
   }
 
   if (demoRes.call) qlooCallsMap.set(demoRes.call.id, demoRes.call);
+  if (!demoRes.ok) {
+    if (demoRes.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
+    if (demoRes.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
+  }
   if (demoRes.ok && demoRes.data !== null) {
     successfulFanoutCount++;
   }
@@ -636,7 +663,7 @@ export async function runPipeline(
       user: plannerPrompt,
       schema: PlannerOut,
       maxOutputTokens: 250,
-      timeoutMs: LLM_TIMEOUT_MS,
+      timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
     });
 
     llmCalls.push({
@@ -681,7 +708,9 @@ export async function runPipeline(
   const partnerGroups: TasteBriefPartnerGroup[] = [];
   let totalPlacesFound = 0;
 
-  if (partnerCategoryKeys.length > 0 && !checkTimeoutOrAbort()) {
+  if (budgetTracker.remaining() <= 0) {
+    addLimitation("L_BUDGET");
+  } else if (partnerCategoryKeys.length > 0 && !checkTimeoutOrAbort()) {
     const partnerCalls = await Promise.all(
       partnerCategoryKeys.map(async (key) => {
         const cat = PARTNER_CATEGORIES.find((c) => c.key === key);
@@ -693,6 +722,7 @@ export async function runPipeline(
           filmEntityId: filmChosenEntityId,
           take: 8,
           fetchImpl: options?.fetchImpl,
+          timeoutMs: qlooDeadline(),
         });
 
         if (res.call) qlooCallsMap.set(res.call.id, res.call);
@@ -700,6 +730,9 @@ export async function runPipeline(
         let places: CompactPlace[] = [];
         if (res.ok) {
           places = res.data;
+        } else {
+          if (res.error.code === "BUDGET_EXCEEDED") addLimitation("L_BUDGET");
+          if (res.error.code === "REPLAY_MISS") addLimitation("L_REPLAY_MISS");
         }
 
         const assessed = assessPartners(places, cat, show.theater);
@@ -851,7 +884,7 @@ export async function runPipeline(
         user: buildChannelsPrompt(channelsPromptInput),
         schema: ChannelsOut,
         maxOutputTokens: 600,
-        timeoutMs: LLM_TIMEOUT_MS,
+        timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
       }),
       llmClient.generateJson({
         purpose: "copy",
@@ -859,7 +892,7 @@ export async function runPipeline(
         user: buildCopyPrompt(copyPromptInput),
         schema: CopyOut,
         maxOutputTokens: 900,
-        timeoutMs: LLM_TIMEOUT_MS,
+        timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
       }),
       llmClient.generateJson({
         purpose: "summary",
@@ -867,7 +900,7 @@ export async function runPipeline(
         user: buildSummaryPrompt(summaryPromptInput),
         schema: SummaryOut,
         maxOutputTokens: 400,
-        timeoutMs: LLM_TIMEOUT_MS,
+        timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
       }),
     ]);
 
@@ -926,7 +959,7 @@ export async function runPipeline(
           user: feedbackPrompt,
           schema: ChannelsOut,
           maxOutputTokens: 600,
-          timeoutMs: LLM_TIMEOUT_MS,
+          timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
         });
 
         llmCalls.push({
@@ -1008,7 +1041,7 @@ export async function runPipeline(
           user: feedbackPrompt,
           schema: CopyOut,
           maxOutputTokens: 900,
-          timeoutMs: LLM_TIMEOUT_MS,
+          timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
         });
 
         llmCalls.push({
@@ -1080,7 +1113,7 @@ export async function runPipeline(
           user: feedbackPrompt,
           schema: SummaryOut,
           maxOutputTokens: 400,
-          timeoutMs: LLM_TIMEOUT_MS,
+          timeoutMs: llmDeadline(LLM_TIMEOUT_MS),
         });
 
         llmCalls.push({

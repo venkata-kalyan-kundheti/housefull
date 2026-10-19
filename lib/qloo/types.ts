@@ -116,6 +116,7 @@ export interface QlooContext {
   trace?: TraceSink;
   mode: "live" | "replay";
   callCounter?: { nextId(): string };
+  timeoutMs?: number;
 }
 
 export type QlooResult<T> =
